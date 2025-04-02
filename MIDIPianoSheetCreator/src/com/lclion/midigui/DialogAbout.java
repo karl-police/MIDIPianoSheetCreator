@@ -45,7 +45,7 @@ public class DialogAbout extends JDialog
 		
 		
 		setTitle("About");
-		setBounds(100, 100, 394, 274);
+		setBounds(100, 100, 400, 350);
 		getContentPane().setLayout(new BorderLayout());
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
@@ -57,7 +57,7 @@ public class DialogAbout extends JDialog
 			contentPanel.add(lblMidiToVirtual);
 		}
 		{
-			JLabel lblNewLabel = new JLabel("alpha version 0.8");
+			JLabel lblNewLabel = new JLabel("alpha version custom 0.81");
 			lblNewLabel.setAlignmentX(0.5f);
 			lblNewLabel.setAlignmentY(0.0f);
 			contentPanel.add(lblNewLabel);

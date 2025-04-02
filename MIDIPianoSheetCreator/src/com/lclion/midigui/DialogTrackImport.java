@@ -496,6 +496,12 @@ public class DialogTrackImport extends JDialog
 		for (Track track : tracks)
 		{
 			++trackNum;
+			
+			// Skip Track 0, as it is a meta track.
+			/*if (trackNum == 0) {
+				continue;
+			}*/ // Commented out because it breaks the chosen tracks configuration
+			
 			System.out.println("Track : " + trackNum);
 			// User doesnt really need to know what tracks the midi has
 			// + " (Track " + (listModel.getSize() + 1) + ")"
@@ -503,7 +509,8 @@ public class DialogTrackImport extends JDialog
 			// This commented if statement gets rid of tracks that have 0 notes
 			/*if (trackEvents.get(trackNum + 1) != 0)
 			{*/
-				listModel.addElement(pc.getPatchName(midiParser.getPatchNumber(trackNum)) + " (" + trackEvents.get(trackNum + 1) + " notes)");
+				listModel.addElement(pc.getPatchName(midiParser.getPatchNumber(trackNum)) + " (" + trackEvents.get(trackNum + 1) + " notes)" + " | " + midiParser.getTrackName(trackNum));
+				//listModel.addElement(pc.getPatchName(midiParser.getPatchNumber(trackNum)) + " (" + trackEvents.get(trackNum + 1) + " notes)");
 				listModelPlayIndicator.addElement("\u266B Event"); // We add this spacing to create artificial spacing in ScrollPane Row Header
 			//}
 

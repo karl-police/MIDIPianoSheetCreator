@@ -10,6 +10,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.Font;
 
 import javax.swing.JFrame;
@@ -99,6 +102,10 @@ import org.pushingpixels.substance.api.skin.SubstanceOfficeSilver2007LookAndFeel
 import org.pushingpixels.substance.api.skin.SubstanceRavenLookAndFeel;
 import org.pushingpixels.substance.api.skin.SubstanceTwilightLookAndFeel;
 
+import com.github.kwhat.jnativehook.GlobalScreen;
+import com.github.kwhat.jnativehook.NativeHookException;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 import com.lclion.midiparser.MIDIParser;
 import com.lclion.midiparser.NoteColourConverter;
 import com.lclion.midiplayer.MIDIPlayer;
@@ -158,6 +165,9 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 	private static DialogOnScreenKeyboard dialogOnScreenKeyboard = null;
 	// ! A Dialog that displays an On Screen Piano for preview purposes.
 	private static DialogOnScreenPiano dialogOnScreenPiano = null;
+	
+	// ! KeySender
+	private static KeySender keySender = null;
 
 	// ! The MIDIParser class that parses the MIDI file and converts into notes
 	private MIDIParser midiParser = null;
@@ -220,6 +230,20 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 	// ! Menu that opens the OnScreen Piano dialog.
 	private JMenuItem mntmOnscreenPiano;
 	private JMenu mnFile;
+	
+	
+	// ! Options Menu
+	private JMenu mnOptions;
+	// ! Key Signal option menu
+	private JCheckBoxMenuItem checkbox_optionSendKeys;
+	
+	// For note tracking
+	private long lastNextEventTick = 0L;
+	private int lastNote_iterator = 0;
+	private int noteText_currentPosition = 0;
+	private int noteText_lastCurrentPosition = 0;
+	private int noteText_endPosition = 0;
+	private int noteText_lastLength = 0;
 
 	/**
 	 * Constructor that initialises all GUI components and it's Event Listeners.
@@ -236,7 +260,7 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 		setVisible(true);
 		setIconImage(new ImageIcon(getClass().getResource("/resources/images/icongrey.png")).getImage());
 		setResizable(true);
-		setTitle("MIDI to Computer Keys Converter - v0.8 alpha");
+		setTitle("MIDI to Computer Keys Converter - v0.81 alpha");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		// Setup the Main Content Pane which will include all Java Swing Components used in this window
@@ -253,6 +277,7 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 		// Components must be declared and initialized in order of GUI hierarchy as below, do not change order unless you know what you're doing
 		// Init all Main Window Components - it's important not to change this order as some GUI's rely on others to initialize first.
 		initDialogs();
+		initModules();
 		initProgressSliders();
 		initTextPane();
 		initMenuBar();
@@ -310,6 +335,25 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 
 		frameHolder = this;
 	}
+	
+	
+	private void initModules()
+	{
+		try {
+			GlobalScreen.registerNativeHook();
+		}
+		catch (NativeHookException ex) {
+			System.err.println("There was a problem registering the native hook.");
+			System.err.println(ex.getMessage());
+
+			System.exit(1);
+		}
+		
+		GlobalScreen.addNativeKeyListener(new GlobalKeyListenerGUI());
+		
+		keySender = new KeySender();
+	}
+	
 
 	/**
 	 * \brief Initialise buttons related to this window here.
@@ -344,7 +388,7 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 			{
 				if (!midiPlayer.isRunning())
 				{ // The button is now toggled to Play.
-
+					
 					// Indicate that the MIDI Playback can now be paused
 					btnPlay.setText("Pause");
 					btnPlay.setIcon(new ImageIcon(getClass().getResource("/resources/images/control_pause_blue.png")));
@@ -361,6 +405,9 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 					midiPlayer.playMIDI();
 					midiPlayer.setInstrument(currentPatchNum);
 
+					// force set the volume, because it resets for some reason
+					midiPlayer.forceSetVolume(sliderVolume.getValue());
+
 					System.out.println("spKeyEditor Vertical Visible : " + spKeyEditor.getVerticalScrollBar().getVisibleAmount());
 					System.out.println("spKeyEditor Vertical Current Value : " + spKeyEditor.getVerticalScrollBar().getValue());
 					System.out.println("spKeyEditor Vertical Total : " + spKeyEditor.getVerticalScrollBar().getMaximum());
@@ -371,14 +418,14 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 						private String space = " ";
 						private String fullText = null;
 
-						private int iterator = 0; // The current iteration of the note played
+						private int iterator = lastNote_iterator; // The current iteration of the note played
 						private long nextEventTick = 0L;
 						private long currentTick = 0L;
 						private int length = 0; // length of the current note
-						private int currentPosition = 0; // The current position of note
-						private int endPosition = 0; // end position of current note
-						private int lastCurrentPosition = 0;
-						private int lastLength = 0;
+						private int currentPosition = noteText_currentPosition; // The current position of note
+						private int endPosition = noteText_endPosition; // end position of current note
+						private int lastCurrentPosition = noteText_lastCurrentPosition;
+						private int lastLength = noteText_lastLength;
 
 						// int previousScrollBarPos = spKeyEditor.getVerticalScrollBar().getValue();
 
@@ -403,9 +450,10 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 
 								currentTick = midiPlayer.getCurrentTick();
 								// System.out.println("nextEventTick : " + nextEventTick + "CurrentTick : " + currentTick);
-
+								
 								if (currentTick > nextEventTick)
 								{
+									//System.out.println(iterator + " " + lastNote_iterator);
 									iterator += 1;
 
 									// Update the On-Screen Keyboard if that window is visible
@@ -472,6 +520,33 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 										tpKeyEditor.getStyledDocument().setCharacterAttributes(lastCurrentPosition, lastLength, grey, false);
 
 									}
+									
+									
+									// Set last next event tick to prevent this function being called multiple times when the app is idle and paused.
+									// Because it would reset the nextEventTick back to 0 for some reason, so it's just saved onto this variable now.
+									if (nextEventTick >= lastNextEventTick) {
+										// System.out.println("nextEventTick : " + nextEventTick + " LastNextEventTick : " + lastNextEventTick + " CurrentTick : " + currentTick);
+										lastNextEventTick = nextEventTick;
+										
+										
+										// This is the part where the key is about to get played.
+										// Part where to send the signal.
+										
+										// If send keys is enabled.
+										if (iterator > lastNote_iterator) {
+											if (checkbox_optionSendKeys.isSelected() == true) {
+												keySender.sendKey(KeyEvent.VK_COMMA);
+											}
+										}
+									}
+									
+									if (iterator > lastNote_iterator) {
+										// Update last iterator
+										// The next iterator gets updated as next
+										lastNote_iterator = iterator;
+									}
+									
+									
 
 									// Configure for the next loop
 									lastLength = length;
@@ -490,6 +565,10 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 									// Configure for the next loop
 									endPosition += 1;
 									currentPosition = endPosition;
+									noteText_currentPosition = currentPosition;
+									noteText_lastCurrentPosition = lastCurrentPosition;
+									noteText_endPosition = endPosition;
+									noteText_lastLength = lastLength;
 									// tpKeyEditor.setCaretPosition(currentPosition);
 									length = 0;
 
@@ -497,15 +576,18 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 							}
 							else
 							{
+								// This part reaches once track plays to the end.
 								// Reset everything
 								iterator = 0;
 								nextEventTick = 0L;
 								currentTick = 0L;
 								length = 0;
-								currentPosition = 0; // The current position that will be inserted
-								endPosition = 0; // A temp
-								lastCurrentPosition = 0;
+								noteText_currentPosition = 0; // The current position that will be inserted
+								noteText_endPosition = 0; // A temp
+								noteText_lastCurrentPosition = 0;
 								lastLength = 0;
+								
+								resetTrackKeepingValues(); // Reset track keeping values.
 
 								// Stop playing
 								midiPlayer.stopMIDI();
@@ -543,6 +625,7 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 				}
 				else
 				{
+					// When unpaused
 					// Configure it to Pause, remember Play button is a toggle button between Play and Pause
 					btnPlay.setText("Play");
 					btnPlay.setIcon(new ImageIcon(getClass().getResource("/resources/images/control_play_blue.png")));
@@ -613,11 +696,47 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 					final AttributeSet grey = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(192, 192, 192));
 					tpKeyEditor.getStyledDocument().setCharacterAttributes(0, tpKeyEditor.getDocument().getLength(), grey, false);
 				}
+				
+				
+				// Reset note track parameters
+				resetTrackKeepingValues();
 
 			}
 		});
 	}
 
+	
+	/**
+	 * \brief Resets the dialog styling.
+	 */
+	private void resetDialogStyle() {
+		if (dialogTrackImport.isColourise())
+		{
+			tpKeyEditor.setStyledDocument(noteColourConverter.ColouriseNotes());
+		}
+		else
+		{
+			// Apply default text colour of grey
+			final StyleContext cont = StyleContext.getDefaultStyleContext();
+			final AttributeSet grey = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(192, 192, 192));
+			tpKeyEditor.getStyledDocument().setCharacterAttributes(0, tpKeyEditor.getDocument().getLength(), grey, false);
+		}
+	}
+	
+	/**
+	 * \brief Resets global data used for the note track.
+	 */
+	private void resetTrackKeepingValues() {
+		lastNextEventTick = 0L;
+		lastNote_iterator = 0;
+		
+		noteText_currentPosition = 0;
+		noteText_lastCurrentPosition = 0;
+		noteText_endPosition = 0;
+		noteText_lastLength = 0;
+	}
+	
+	
 	/**
 	 * \brief Initialise sliders related to this window.
 	 */
@@ -638,6 +757,68 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 		sliderTime.setOpaque(true);
 		sliderTime.setValue(0);
 		sliderTime.setEnabled(false);
+		
+		sliderTime.addMouseListener(new MouseListener() {
+
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent arg0) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void mouseExited(MouseEvent arg0) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void mousePressed(MouseEvent arg0) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent arg0) {
+				if (midiPlayer != null) {
+					// Make sure the midi player isn't running.
+					if (!midiPlayer.isRunning()) {
+						int value = sliderTime.getValue();
+						
+						// If the modified value is less than the current tick, reset the style.
+						if (value < midiPlayer.getCurrentTick()) {
+							resetDialogStyle();
+							
+							noteText_currentPosition = 0;
+							noteText_lastCurrentPosition = 0;
+							noteText_endPosition = 0;
+							noteText_lastLength = 0;
+						}
+						
+						
+						// The slider updates the value everytime based on midiPlayer's tick value.
+						// So we set that instead.
+						midiPlayer.setTick(value);
+						lastNextEventTick = ((long) value);
+						lastNote_iterator = 0;
+					}
+				}
+			}
+			
+		});
+		
+		/*sliderTime.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent event) {
+				
+			}
+		});*/
+		
 
 		// Initialise Volume slider
 		lblVolume = new JLabel("Volume:");
@@ -749,10 +930,28 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 		initMenuFontSize();
 		initMenuFontFamily();
 
+		
+		// Init Options Menu
+		//initMenuOptions();
+		
 		// Init Help Menu
 		initMenuHelp();
 	}
 
+	/**
+	 * Options Menu initialization
+	 */
+	private void initMenuOptions()
+	{
+		mnOptions = new JMenu("Options");
+		menuBar.add(mnOptions);
+		
+		checkbox_optionSendKeys = new JCheckBoxMenuItem("Send Key Signal");
+		
+		mnOptions.add(checkbox_optionSendKeys);
+	}
+	
+	
 	/**
 	 * \brief Initialise Menu Help related to this window.
 	 */
@@ -761,6 +960,8 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 
 		mnView = new JMenu("View");
 		menuBar.add(mnView);
+		
+		initMenuOptions();
 
 		mntmColourNoteValues = new JMenuItem("Colour Reference");
 		mntmColourNoteValues.addActionListener(new ActionListener()
@@ -812,6 +1013,8 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 				}
 			}
 		});
+		
+		
 		mnView.add(mntmOnscreenPiano);
 		mnView.add(mntmOnscreenKeyboard);
 		mnView.add(mntmColourNoteValues);
@@ -1568,5 +1771,52 @@ public class JFrameMIDIPianoSheetCreator extends JFrame
 		mntmTahoma.setSelected(false);
 		mntmVerdana.setSelected(false);
 		mntmSegoeUi.setSelected(false);
+	}
+	
+	
+	// Key Binds
+	private class GlobalKeyListenerGUI implements NativeKeyListener {
+		private boolean debounce_playBtn = false;
+		
+		public void nativeKeyPressed(NativeKeyEvent e) {
+			//System.out.println("Key Pressed: " + NativeKeyEvent.getKeyText(e.getKeyCode()));
+
+			// F6 Hotkey
+			if (e.getKeyCode() == NativeKeyEvent.VC_F6) {
+				if (debounce_playBtn == true) { return; }
+				
+				debounce_playBtn = true;
+				
+				btnPlay.doClick();
+			}
+			
+			// Speed Hotkey
+			if (e.getKeyCode() == (0xe4e)) { // NUMPAD PLUS
+				if (midiPlayer != null) {
+					spinnerSpeed.setValue((float) spinnerSpeed.getValue() + 0.1f);
+				}
+			}
+			
+			if (e.getKeyCode() == (0xe4a)) { // NUMPAD MINUS
+				if (midiPlayer != null) {
+					spinnerSpeed.setValue((float) spinnerSpeed.getValue() - 0.1f);
+				}
+			}
+			
+			if (e.getKeyCode() == 83) { // NUMPAD DELETE
+				if (midiPlayer != null) {
+					spinnerSpeed.setValue(1f); // Reset
+				}
+			}
+		}
+
+		public void nativeKeyReleased(NativeKeyEvent e) {
+			debounce_playBtn = false;
+			//System.out.println("Key Released: " + NativeKeyEvent.getKeyText(e.getKeyCode()));
+		}
+
+		public void nativeKeyTyped(NativeKeyEvent e) {
+			//System.out.println("Key Typed: " + e.getKeyText(e.getKeyCode()));
+		}
 	}
 }

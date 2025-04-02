@@ -8,5 +8,6 @@
 	<classpathentry kind="lib" path="laf-widget-5.0.jar"/>
 	<classpathentry kind="lib" path="trident-1.2.jar"/>
 	<classpathentry kind="lib" path="laf-plugin-1.1.jar"/>
+	<classpathentry kind="lib" path="jnativehook-2.2.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

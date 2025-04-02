@@ -264,6 +264,45 @@ public class MIDIPlayer
 
 		}
 	}
+	
+	// For Volume fix
+	public void forceSetVolume(final double volume)
+	{
+		Thread thread = new Thread() { // Create a new thread so that no lag is noticeable.
+			public void run() {
+				try {
+					Synthesizer synthesizer = MidiSystem.getSynthesizer();
+					//synthesizer.open();
+					
+					try {
+						Thread.sleep(50);
+					} catch (InterruptedException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					MidiChannel[] channels = synthesizer.getChannels();
+					
+					ShortMessage volMessage = new ShortMessage();
+					for (int i = 0; i < channels.length; i++) {
+						try {
+							volMessage.setMessage(ShortMessage.CONTROL_CHANGE, i, 7, (int) volume);
+							receiver.send(volMessage, -1);
+						} catch (InvalidMidiDataException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+					//synthesizer.close();
+					
+				} catch (MidiUnavailableException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		};
+		
+		thread.start();
+	}
 
 	public void setInstrument(int progNum)
 	{

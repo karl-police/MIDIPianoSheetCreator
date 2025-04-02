@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 
+import javax.sound.midi.Instrument;
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
@@ -33,6 +35,8 @@ import javax.sound.midi.MidiUnavailableException;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.Sequencer;
 import javax.sound.midi.ShortMessage;
+import javax.sound.midi.Soundbank;
+import javax.sound.midi.Synthesizer;
 import javax.sound.midi.Track;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -836,6 +840,35 @@ public class MIDIParser// extends SwingWorker<String, Integer>
 
 	}
 	
+	
+	public String getTrackName(int trackNum) {
+		String trackName = new String();
+		
+		Track[] track = sequence.getTracks();
+		for (int i = 0; i < track[trackNum].size(); i++)
+		{
+			MidiEvent event = track[trackNum].get(i);
+			MidiMessage message = event.getMessage();
+			if (message instanceof MetaMessage)
+			{
+				MetaMessage mm = (MetaMessage) message;
+				String mmString = String.format("%02x", Integer.parseInt(((Integer) mm.getType()).toString()));
+				
+				// Print the Message data, plus a new line
+				//System.out.println(new String(mm.getData(), "UTF-8"));
+				if (mmString.equals("03")) {
+					try {
+						trackName = new String(mm.getData(), "UTF-8");
+					} catch (UnsupportedEncodingException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+			}
+		}
+		
+		return trackName;
+	}
 
 	public int getPatchNumber(int trackNum)
 	{
