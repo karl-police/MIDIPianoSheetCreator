@@ -1,0 +1,61 @@
+name: Eclipse Build Non-Working
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin" # See 'Supported distributions' for available options
+          java-version: "21"
+      
+      - name: List Sources
+        shell: cmd
+        run: |
+            cd MIDIPianoSheetCreator
+            dir /s /B *.java > sources.txt
+
+      - name: Compile Java Files
+        shell: cmd
+        run: |
+            cd MIDIPianoSheetCreator
+            javac -d bin -cp "forms-1.3.0.jar;substance-7.2.1.jar;laf-widget-5.0.jar;trident-1.2.jar;laf-plugin-1.1.jar;jnativehook-2.2.2.jar" @sources.txt
+
+      - name: Package into JAR
+        shell: cmd
+        run: |
+            cd MIDIPianoSheetCreator
+            cp -r bin/com com/
+            cp -r Data/resources resources/
+            powershell -Command "Expand-Archive -Path 'forms-1.3.0-src.zip' -DestinationPath './'"
+            powershell -Command "Expand-Archive -Path 'substance-7.2.1.jar' -DestinationPath './'"
+            jar -cvfm MIDIPianoSheetCreator.jar MANIFEST.MF .classpath .project com/* *.jar
+
+      - name: Generate MANIFEST.MF
+        run: |
+          cd MIDIPianoSheetCreator
+          echo "Manifest-Version: 1.0" > MANIFEST.MF
+          echo "Main-Class: com.lclion.midigui.InitMain" >> MANIFEST.MF
+          echo "Class-Path: forms-1.3.0.jar substance-7.2.1.jar laf-widget-5.0.jar trident-1.2.jar laf-plugin-1.1.jar jnativehook-2.2.2.jar com/*" >> MANIFEST.MF
+
+      - name: Try Running Java Application
+        run: |
+            cd MIDIPianoSheetCreator
+            java -jar MIDIPianoSheetCreator.jar
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-build
+          path: |
+            MIDIPianoSheetCreator/MIDIPianoSheetCreator.jar
