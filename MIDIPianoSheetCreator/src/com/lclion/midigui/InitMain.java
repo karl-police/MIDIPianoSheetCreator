@@ -39,11 +39,12 @@ import java.awt.EventQueue;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.UnsupportedLookAndFeelException;
 
-import org.pushingpixels.substance.api.skin.SubstanceGraphiteLookAndFeel;
+import org.pushingpixels.radiance.theming.api.skin.RadianceGraphiteLookAndFeel;
 
 /**
  * \mainpage Welcome to MIDI Piano Sheet Creator Documentation file.
@@ -131,7 +132,6 @@ public class InitMain
 		{
 			// Try to initiate the default theme (last fail safe)
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
 			// Try to initiate the Nimbus theme
 			for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels())
 			{
@@ -153,16 +153,25 @@ public class InitMain
 
 		// Try to initiate (the preferred) Substantiate Look and Feel Theme. Java will fall back to the previously initialised theme
 		// if this fails
-		try
+		/*try
 		{
 			// Unknown reasons why it has to be instantiated twice, else you may get a Null Pointer Exception.
-			UIManager.setLookAndFeel(new SubstanceGraphiteLookAndFeel());
-			UIManager.setLookAndFeel(new SubstanceGraphiteLookAndFeel());
+			UIManager.setLookAndFeel(new RadianceGraphiteLookAndFeel());
+			UIManager.setLookAndFeel(new RadianceGraphiteLookAndFeel());
 		} catch (UnsupportedLookAndFeelException e1)
 		{
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
+		}*/
+		
+		//JFrame.setDefaultLookAndFeelDecorated(true);
+		SwingUtilities.invokeLater(() -> {
+			try {
+	          UIManager.setLookAndFeel(new RadianceGraphiteLookAndFeel());
+	        } catch (Exception e) {
+	          System.out.println("Radiance Graphite failed to initialize");
+	        }
+		});
 	}
 
 }
