@@ -1,4 +1,4 @@
-name: Eclipse Build Non-Working
+name: IntelliJ Build Non-Working
 
 on: workflow_dispatch
 
@@ -23,11 +23,11 @@ jobs:
       - name: Try Running Java Application
         run: |
             cd MIDIPianoSheetCreator
-            java -jar MIDIPianoSheetCreator.jar
+            java -jar out/artifacts/MIDIPianoSheetCreator_custom.jar
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: output-build
           path: |
-            out/artifacts/MIDIPianoSheetCreator_custom.jar
+            out/artifacts/*
